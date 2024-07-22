@@ -123,7 +123,7 @@ contains
         nz = athena%nx2/2 + 1
       else if (grid_type == 1) then
         n_az = athena%nx2
-        nz = athena%nx2/2 + 1
+        nz = athena%nx3/2 + 1
       endif
 
       lregular_theta = .true.
@@ -463,11 +463,12 @@ contains
 
       return
     else
-      call setup_grid()
-      call define_grid()
-      call stars_cell_indices()
-
-      call allocate_densities()
+      write(*,*) "Writing athena dumpfile to a standard MCFOST grid..."
+      ! call setup_grid()
+      ! call define_grid()
+      ! call stars_cell_indices()
+      !
+      ! call allocate_densities()
 
       ! Convert to non-raw data, ie merge all blocks
       do iblock=1, n_blocks

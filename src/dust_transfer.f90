@@ -109,7 +109,7 @@ subroutine transfert_poussiere()
 
   laffichage=.true.
 
-write(*,*) "######lVoronoi", lVoronoi 
+write(*,*) "######lVoronoi", lVoronoi
 
   if (lVoronoi) then
      if (lmhd_voronoi) then
@@ -137,6 +137,8 @@ write(*,*) "######lVoronoi", lVoronoi
      else if (lsphere_model) then
         !on a structured spherical grid
         call read_spherical_model(density_files(1))
+     else if (lathena) then
+        call read_athena_model()
      else if (lmodel_1d) then !1d spherically symmetric "stellar atmosphere" models
         call setup_model1d_to_mcfost()
      else if (lidefix) then
