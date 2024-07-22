@@ -5,7 +5,7 @@ module read_athena
   use messages
   use mcfost_env
   use grid
-  ! use cylindrical_grid
+  use cylindrical_grid
   ! use spherical_grid
   use density
   use stars, only : compute_stellar_parameters, stars_cell_indices
@@ -72,7 +72,8 @@ contains
       write(*,*) "Mesh refinment detected in athena++ model. "
       ! call error("mcfost can only read athena++ grids with MaxLevel=0 for now")
     else
-      if (athena%coord == 1 .or. athena%coord == 2) then
+      ! if (athena%coord == 1 .or. athena%coord == 2) then
+      if (athena%coord == 2) then
         athena%arb_grid = .false.
         lVoronoi = .false.
       endif
