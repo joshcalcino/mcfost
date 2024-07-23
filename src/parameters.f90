@@ -167,6 +167,7 @@ module parametres
 
   ! Other model parameters
   logical :: larg_voronoi, lcorotating_frame
+  real :: corotation_radius
 
   ! Disk parameters
   real :: distance ! Distance du disque en pc

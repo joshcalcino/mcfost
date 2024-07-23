@@ -74,10 +74,10 @@ contains
     else
       ! if (athena%coord == 1 .or. athena%coord == 2) then
       if (athena%coord == 2) then
-        ! athena%arb_grid = .false.
-        ! lVoronoi = .false.
-        athena%arb_grid = .true.
-        lVoronoi = .true.
+        athena%arb_grid = .false.
+        lVoronoi = .false.
+        ! athena%arb_grid = .true.
+        ! lVoronoi = .true.
       endif
     endif
 
@@ -187,14 +187,21 @@ contains
 
     ! Planet properties hard coded for now
     real, parameter :: Mp = 1e-3
-    real, parameter :: x = 1.0, y=0.0, z=0.0
-    real, parameter :: Omega_p = (1.0/(x**2.0 + y**2.0)**(3.0/2.0))**(1.0/2.0)! 0.06804138174397717 ! (1.0/6.0)**(2/3) ! 1.0
-    real, parameter :: vx=0.0, vy=1.0, vz=1.0
+    ! real, parameter :: x = 1.0, y=0.0, z=0.0
+    ! real, parameter :: Omega_p = (1.0/(x**2.0 + y**2.0)**(3.0/2.0))**(1.0/2.0)! 0.06804138174397717 ! (1.0/6.0)**(2/3) ! 1.0
+    real, parameter :: vx=0.0, vy=1.0, vz=0.0
     logical :: print_messages, test
 
+    real  :: x, y, z ! = 1.0, y=0.0, z=0.0
+    real  :: Omega_p ! = (1.0/(x**2.0 + y**2.0)**(3.0/2.0))**(1.0/2.0)! 0.06804138174397717
 
     ! print_messages = .true.
     ! call hdf_set_print_messages(print_messages)
+    x = corotation_radius
+    y = 0.0
+    z = 0.0
+
+    Omega_p = (1.0/(corotation_radius**2.0)**(3.0/2.0))**(1.0/2.0)
 
     usolarmass = 1.0_dp
     ulength_au = 1.0_dp
