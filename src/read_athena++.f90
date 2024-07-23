@@ -74,8 +74,10 @@ contains
     else
       ! if (athena%coord == 1 .or. athena%coord == 2) then
       if (athena%coord == 2) then
-        athena%arb_grid = .false.
-        lVoronoi = .false.
+        ! athena%arb_grid = .false.
+        ! lVoronoi = .false.
+        athena%arb_grid = .true.
+        lVoronoi = .true.
       endif
     endif
 
@@ -446,7 +448,8 @@ contains
       ! Estimate h
       ! h = v_a**1./3.
       ! Defining a smoothing length
-      h = 0.02 * sqrt(xx*xx+yy*yy+zz*zz)
+      h = sqrt(xx*xx+yy*yy+zz*zz)
+
 
       ! Not sure if I should convert out of code units ...
       xx = xx * ulength_au
@@ -456,6 +459,7 @@ contains
       vxx = vxx * uvelocity
       vyy = vyy * uvelocity
       vzz = vzz * uvelocity
+
 
       deallocate(x1_a, x2_a, x3_a, vx1_a, vx2_a, vx3_a, rho_a, v_a)
 
