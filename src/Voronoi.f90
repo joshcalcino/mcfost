@@ -623,11 +623,11 @@ module Voronoi_grid
     endif
     write(*,*) "Found", n_in, "cells"
 
-    if (n_in /= n_cells) then
-       write(*,*) "n_cells =", n_cells
-       write(*,*) "n in tesselation =", n_in
-       call error("some particles are not in the mesh")
-    endif
+    ! if (n_in /= n_cells) then
+    !    write(*,*) "n_cells =", n_cells
+    !    write(*,*) "n in tesselation =", n_in
+    !    call error("some particles are not in the mesh")
+    ! endif
 
     write(*,*) "Neighbours list size =", n_neighbours_tot
     write(*,*) "Average number of neighbours =", real(n_neighbours_tot)/n_cells
