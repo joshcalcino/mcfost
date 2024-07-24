@@ -166,7 +166,7 @@ module parametres
   integer :: isink_centre
 
   ! Other model parameters
-  logical :: larg_voronoi, lcorotating_frame
+  logical :: larg_voronoi, lcorotating_frame, lignore_voro
   real :: corotation_radius
 
   ! Disk parameters

@@ -1477,6 +1477,9 @@ subroutine initialisation_mcfost()
        else
           corotation_radius = 1.0
        endif
+     case("-ignore_voronoi")
+       i_arg = i_arg + 1
+       lignore_voro = .true.
       case default
         write(*,*) "Error: unknown option: "//trim(s)
         write(*,*) "Use 'mcfost -h' to get list of available options"

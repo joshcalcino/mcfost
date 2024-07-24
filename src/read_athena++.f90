@@ -108,8 +108,11 @@ contains
 
 !    call hdf_read_attribute(group_id,"", "VariableNames",VariableNames) ! No interface yet for array of strings
 !    if (trim(VariableNames) /= "rho") call error("mcfost cannot read VariableNames in athena++ dump")
+    ! if (lignore_voro) then
+    !   athena%arb_grid = .false.
+    ! endif
 
-    if (athena%arb_grid) then
+    if (athena%arb_grid .or. lignore_voro) then
       return
 
     else
@@ -173,7 +176,7 @@ contains
     real(kind=dp), dimension(:,:,:), allocatable :: rho_tmp, vx1_tmp, vx2_tmp, vx3_tmp, x1_tmp, x2_tmp, x3_tmp, v_tmp
     real(kind=dp), dimension(:), allocatable :: rho_a, vx1_a, vx2_a, vx3_a, x1_a, x2_a, x3_a, v_a ! For the arbitrary grids where we need position to be passed to voronoi
     real(kind=dp), dimension(:), allocatable :: dx, dy, dz
-    real(kind=dp), dimension(:), allocatable :: x1f_tmp, x2f_tmp, x3f_tmp, vel_tmp
+    real(kind=dp), dimension(:), allocatable :: x1f_tmp, x2f_tmp, x3f_tmp, vel_tmp, icell_arr
     real(kind=dp), dimension(:), allocatable :: xx, yy, zz, vxx, vyy, vzz, mass_gas, h
     integer, dimension(:), allocatable :: particle_id
     real, dimension(:,:), allocatable :: x1f, x2f, x3f, x1v, x2v, x3v
@@ -182,6 +185,7 @@ contains
     integer :: i, iblock, il, jl, kl, iu, ju, ku, j, jj, phik, icell, it, jt, kt
 
     real(dp) :: Ggrav_athena, umass, usolarmass, ulength, utime, udens, uvelocity, ulength_au, mass, facteur
+    real(kind=dp) :: x_tmp, y_tmp, z_tmp
     type(star_type), dimension(:), allocatable :: etoile_old
     character(12) :: coord_name
 
@@ -190,7 +194,7 @@ contains
     ! real, parameter :: x = 1.0, y=0.0, z=0.0
     ! real, parameter :: Omega_p = (1.0/(x**2.0 + y**2.0)**(3.0/2.0))**(1.0/2.0)! 0.06804138174397717 ! (1.0/6.0)**(2/3) ! 1.0
     real, parameter :: vx=0.0, vy=1.0, vz=0.0
-    logical :: print_messages, test
+    logical :: print_messages, test, fixed_grid
 
     real  :: x, y, z ! = 1.0, y=0.0, z=0.0
     real  :: Omega_p ! = (1.0/(x**2.0 + y**2.0)**(3.0/2.0))**(1.0/2.0)! 0.06804138174397717
@@ -322,7 +326,10 @@ contains
     if (alloc_status > 0) call error('Allocation error athena++ data')
 
     if (athena%arb_grid) then
-      lVoronoi = .true.
+      if (.not. lignore_voro) then
+        lVoronoi = .true.
+      endif
+
       nx1 = n_blocks * bs1 * bs2 * bs3
       write(*,*) "number of cells in raw file", nx1
       allocate(rho_a(nx1), vx1_a(nx1), vx2_a(nx1), vx3_a(nx1), stat=alloc_status)
@@ -358,6 +365,13 @@ contains
     ! allocate(tmp_flatten(bs1*bs2*bs3), stat=alloc_status)
     if (alloc_status > 0) call error('Allocation error athena++ rho')
 
+    ! Athena cartesian: x, y, z,
+    ! Athena cylindrical: r, phi, z
+    ! Athena spherical: r, theta, phi
+    ! MCFOST: 1 = cartesian, 2 = cylindrical, 3 = spherical
+    vfield_coord = disk_zone(1)%geometry + 1
+    write(*,*) "vfield_coord", vfield_coord
+
     if (athena%arb_grid) then
       ! Now... What do we do here...
       i = 1
@@ -385,7 +399,9 @@ contains
       write(*,*) "Athena++ data successfully read and reshaped. "
       deallocate(data, x1v, x2v, x3v, x1_tmp, x2_tmp, x3_tmp, v_tmp, x1f, x2f, x3f)
       write(*,*) 'Total grid volume ', real(sum(v_a))
+  endif
 
+  if (athena%arb_grid .and. .not. lignore_voro) then
       ! Need to convert from density to mass
       mass_gas = rho_a*udens*v_a ! * AU3_to_m3  * g_to_Msun
       ! mass_gas = rho_a*udens !* AU3_to_m3  * g_to_Msun
@@ -457,7 +473,6 @@ contains
       ! Defining a smoothing length
       h = sqrt(xx*xx+yy*yy+zz*zz)
 
-
       ! Not sure if I should convert out of code units ...
       xx = xx * ulength_au
       yy = yy * ulength_au
@@ -467,19 +482,113 @@ contains
       vyy = vyy * uvelocity
       vzz = vzz * uvelocity
 
-
       deallocate(x1_a, x2_a, x3_a, vx1_a, vx2_a, vx3_a, rho_a, v_a)
 
       call setup_arb_to_mcfost(xx, yy, zz, h, vxx, vyy, vzz, mass_gas, particle_id)
 
       return
-    else
+    endif
+
+    if (athena%arb_grid .and. lignore_voro) then
+      write(*,*) "Writing AMR/SMR file to standard MCFOST grid.."
+      !  indice_cellule_cyl(xin,yin,zin, icell)
+
+
+      rho_a(il:iu) = reshape(data(:,:,:,iblock,1), (/size(data(:,:,:,iblock,1))/) )
+      vx1_a(il:iu) = reshape(data(:,:,:,iblock,3), (/size(data(:,:,:,iblock,3))/) )
+      vx2_a(il:iu) = reshape(data(:,:,:,iblock,4), (/size(data(:,:,:,iblock,4))/) )
+      vx3_a(il:iu) = reshape(data(:,:,:,iblock,5), (/size(data(:,:,:,iblock,5))/) )
+
+      call meshgrid_3d(x1v(:, iblock), x2v(:, iblock), x3v(:, iblock), x1_tmp, x2_tmp, x3_tmp)  ! (x, y, z, xx, yy, zz)
+
+      x1_a(il:iu) = reshape(x1_tmp, (/size(x1_tmp)/) )
+      x2_a(il:iu) = reshape(x2_tmp, (/size(x2_tmp)/) )
+      x3_a(il:iu) = reshape(x3_tmp, (/size(x3_tmp)/) )
+
+      ! Need to convert to inertial frame
+      ! Convert velocity to correct units
+      if (vfield_coord == 3) then
+        do i=1,size(vx1_a)
+          vx1_a(i)  = vx1_a(i) * uvelocity
+          ! In athena spherical, coordinate 3 is cylindrical phi
+          if (athena%corotating_frame) then
+            vx3_a(i)  = (vx3_a(i) + x1_a(i)/ulength_au * Omega_p) * uvelocity ! vphi
+          else
+            vx3_a(i)  =  vx3_a(i)  * uvelocity
+          endif
+          vx2_a(i)  = vx2_a(i) * uvelocity! vtheta
+        enddo
+      endif
+
+      ! Now figure out the correct icell each AMR grid cell will go into
+      densite_gaz = 0.0
+      densite_pouss = 0.0
+      do i=1, size(vx1_a)
+        x_tmp = x1_a(i)
+        y_tmp = x2_a(i)
+        z_tmp = x3_a(i)
+
+        call indice_cellule_cyl(x_tmp,y_tmp,z_tmp, icell)
+
+        icell_arr(i) = icell
+
+        if (vfield_coord == 3) then
+          densite_gaz(icell) = densite_gaz(icell) +  rho_a(i)*v_a(i)
+          densite_pouss(:,icell) = densite_pouss(:,icell) +  rho_a(i)*v_a(i)
+
+          vfield3d(icell,1)  = vx1(i,jj,phik) *  rho_a(i)*v_a(i)! vr
+          vfield3d(icell,2)  =  vx3(i,jj,phik)  *  rho_a(i)*v_a(i)
+          vfield3d(icell,3)  = vx2(i,jj,phik) *  rho_a(i)*v_a(i)! vtheta
+        endif
+
+        ! Momentum is conserved.. so sum(mi*vi)/sum(mi) = v
+
+      enddo
+
+     do i=1, size(densite_gaz)
+       vfield3d(i,1) = vfield3d(i,1) / densite_gaz(i)
+       vfield3d(i,2) = vfield3d(i,2) / densite_gaz(i)
+       vfield3d(i,3) = vfield3d(i,3) / densite_gaz(i)
+       densite_gaz(i) = densite_gaz(i) / volume(i)
+       densite_pouss(:,i) = densite_pouss(:,i) / volume(i)
+     enddo
+
+     ! -- another copy and paste from read_fargo3d
+     ! Normalisation density : copy and paste from read_density_file for now : needs to go in subroutine
+
+     ! Calcul de la masse de gaz de la zone
+     mass = 0.
+     do icell=1,n_cells
+        mass = mass + densite_gaz(icell) *  masse_mol_gaz * volume(icell)
+     enddo !icell
+     mass =  mass * AU3_to_m3 * g_to_Msun
+
+     ! Normalisation
+     if (mass > 0.0) then ! pour le cas ou gas_to_dust = 0.
+        facteur = disk_zone(1)%diskmass * disk_zone(1)%gas_to_dust / mass
+
+        ! Somme sur les zones pour densite finale
+        do icell=1,n_cells
+           densite_gaz(icell) = densite_gaz(icell) * facteur
+           masse_gaz(icell) = densite_gaz(icell) * masse_mol_gaz * volume(icell) * AU3_to_m3
+        enddo ! icell
+     else
+        call error('Gas mass is 0')
+     endif
+
+     write(*,*) 'Total grid volume ', real(sum(volume))
+
+     write(*,*) 'Total  gas mass in model:', real(sum(masse_gaz) * g_to_Msun),' Msun'
+     call normalize_dust_density()
+     ! -- end copy and paste from read_fargo3d
+
+     write(*,*) "Done"
+     return
+    endif
+
+
+    if (.not. athena%arb_grid .or. lignore_voro) then
       write(*,*) "Writing athena dumpfile to a standard MCFOST grid..."
-      ! call setup_grid()
-      ! call define_grid()
-      ! call stars_cell_indices()
-      !
-      ! call allocate_densities()
 
       ! Convert to non-raw data, ie merge all blocks
       do iblock=1, n_blocks
@@ -516,12 +625,7 @@ contains
       write(*,*) vx1(2,2,2), vx2(2,2,2), vx3(2,2,2)
       write(*,*) "ok"
 
-      ! Athena cartesian: x, y, z,
-      ! Athena cylindrical: r, phi, z
-      ! Athena spherical: r, theta, phi
-      ! MCFOST: 1 = cartesian, 2 = cylindrical, 3 = spherical
-      vfield_coord = disk_zone(1)%geometry + 1
-      write(*,*) "vfield_coord", vfield_coord
+
       if (vfield_coord == 2) then
         do i=1, n_rad
            ! jj= 0
@@ -545,7 +649,6 @@ contains
            enddo
         enddo ! i
       else if (vfield_coord == 3) then
-
         do i=1, n_rad
            jj= 0
            bz : do j=j_start+1,nz-1 ! 1 extra empty cell in theta on each side
@@ -568,8 +671,6 @@ contains
               enddo ! k
            enddo bz
         enddo ! i
-
-
       endif
 
       deallocate(rho,vx1,vx2,vx3)
