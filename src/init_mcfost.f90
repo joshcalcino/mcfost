@@ -1470,7 +1470,7 @@ subroutine initialisation_mcfost()
      case("-corotating_frame")
        i_arg = i_arg + 1
        lcorotating_frame = .true.
-       if (i_arg < nbr_arg) then
+       if (i_arg <= nbr_arg) then
           call get_command_argument(i_arg,s)
           i_arg = i_arg + 1
           read(s,*,iostat=ios) corotation_radius

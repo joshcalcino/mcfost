@@ -197,6 +197,7 @@ contains
 
     ! print_messages = .true.
     ! call hdf_set_print_messages(print_messages)
+    write(*,*) "!!!!!!!!!!!!!!!The corotation radius of the planet is ", corotation_radius
     x = corotation_radius
     y = 0.0
     z = 0.0
