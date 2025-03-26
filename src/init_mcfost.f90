@@ -1470,13 +1470,26 @@ subroutine initialisation_mcfost()
      case("-corotating_frame")
        i_arg = i_arg + 1
        lcorotating_frame = .true.
+       corotation_radius = 1.0  ! Default value
+
+       ! Only read next argument if we still have arguments left
        if (i_arg <= nbr_arg) then
-          call get_command_argument(i_arg,s)
-          i_arg = i_arg + 1
-          read(s,*,iostat=ios) corotation_radius
-       else
-          corotation_radius = 1.0
-       endif
+          call get_command_argument(i_arg, s)
+          ! Check if the next argument is not another flag (i.e., not starting with '-')
+          if (len_trim(s) > 0 .and. s(1:1) /= '-') then
+             read(s, *, iostat=ios) corotation_radius
+             ! If reading succeeded (ios == 0), move to next argument
+             if (ios == 0) i_arg = i_arg + 1
+             ! If reading fails, corotation_radius remains 1.0
+          end if
+       end if
+       ! if (i_arg <= nbr_arg) then
+       !    call get_command_argument(i_arg,s)
+       !    i_arg = i_arg + 1
+       !    read(s,*,iostat=ios) corotation_radius
+       ! else
+       !    corotation_radius = 1.0
+       ! endif
       case default
         write(*,*) "Error: unknown option: "//trim(s)
         write(*,*) "Use 'mcfost -h' to get list of available options"
