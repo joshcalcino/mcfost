@@ -1044,7 +1044,7 @@ contains
              !vphi = - vx(i) * sin_phi + vy(i) * cos_phi
 
              ! Keplerian vphi
-             vphi = sqrt(Ggrav *  (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2)) * scale_mass_units_factor * Msun_to_kg  &
+             vphi = sqrt(Ggrav *  (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2)) * umass_scaled * g_to_kg &
                   * (r_cyl * AU_to_m)**2 /  (r_sph * AU_to_m)**3 )
 
              vx(i) = vr * cos_phi - vphi * sin_phi
