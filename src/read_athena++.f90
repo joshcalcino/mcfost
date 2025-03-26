@@ -464,7 +464,7 @@ contains
       if (mass > 0.0) then
          facteur = disk_zone(1)%diskmass * disk_zone(1)%gas_to_dust / mass
          do i=1,size(mass_gas)
-            mass_gas(i) = mass_gas(i) * facteur ! * AU3_to_m3 * masse_mol_gaz
+            mass_gas(i) = mass_gas(i) * facteur ! * AU3_to_m3 * mu_mH
          enddo ! icell
       else
          call error('Gas mass is 0')
@@ -621,7 +621,7 @@ contains
      ! Calcul de la masse de gaz de la zone
      mass = 0.
      do icell=1,n_cells
-        mass = mass + densite_gaz(icell) *  masse_mol_gaz * volume(icell)
+        mass = mass + densite_gaz(icell) *  mu_mH * volume(icell)
      enddo !icell
      mass =  mass * AU3_to_m3 * g_to_Msun
 
@@ -632,7 +632,7 @@ contains
         ! Somme sur les zones pour densite finale
         do icell=1,n_cells
            densite_gaz(icell) = densite_gaz(icell) * facteur
-           masse_gaz(icell) = densite_gaz(icell) * masse_mol_gaz * volume(icell) * AU3_to_m3
+           masse_gaz(icell) = densite_gaz(icell) * mu_mH * volume(icell) * AU3_to_m3
         enddo ! icell
      else
         call error('Gas mass is 0')
@@ -743,7 +743,7 @@ contains
       ! Calcul de la masse de gaz de la zone
       mass = 0.
       do icell=1,n_cells
-         mass = mass + densite_gaz(icell) *  masse_mol_gaz * volume(icell)
+         mass = mass + densite_gaz(icell) *  mu_mH * volume(icell)
       enddo !icell
       mass =  mass * AU3_to_m3 * g_to_Msun
 
@@ -754,7 +754,7 @@ contains
          ! Somme sur les zones pour densite finale
          do icell=1,n_cells
             densite_gaz(icell) = densite_gaz(icell) * facteur
-            masse_gaz(icell) = densite_gaz(icell) * masse_mol_gaz * volume(icell) * AU3_to_m3
+            masse_gaz(icell) = densite_gaz(icell) * mu_mH * volume(icell) * AU3_to_m3
          enddo ! icell
       else
          call error('Gas mass is 0')
