@@ -6,7 +6,7 @@ module read_athena
   use mcfost_env
   use grid
   use cylindrical_grid
-  ! use spherical_grid
+  use spherical_grid
   use density
   use stars, only : compute_stellar_parameters, stars_cell_indices
   use hdf5
@@ -67,12 +67,17 @@ contains
 
     athena%maxlevel = 0
     call hdf_read_attribute(group_id,"", "MaxLevel",Maxlevel)
+    write(*,*) "##### MaxLevel", MaxLevel
     if (MaxLevel > 0)  then
       athena%maxlevel = MaxLevel
       write(*,*) "Mesh refinment detected in athena++ model. "
       ! call error("mcfost can only read athena++ grids with MaxLevel=0 for now")
+      if (lignore_voro) then
+        lVoronoi = .false.
+      endif
     else
       ! if (athena%coord == 1 .or. athena%coord == 2) then
+      write(*,*) "athena%coord is ", athena%coord
       if (athena%coord == 2) then
         athena%arb_grid = .false.
         lVoronoi = .false.
@@ -84,7 +89,9 @@ contains
     ! nr, ntheta, naz
     ! x, y, z
     ! nr, ntheta, nphi
+    ! RootGrid is the same whether AMR/SMR is on or not
     call hdf_read_attribute(group_id,"", "RootGridSize",RootGridSize)
+    ! write(*,*) "##### RootGrid", RootGridSize
     athena%nx1=RootGridSize(1)
     athena%nx2=RootGridSize(2)
     athena%nx3=RootGridSize(3)
@@ -92,6 +99,8 @@ contains
     call hdf_read_attribute(group_id,"", "RootGridX1",RootGridX1) ! r
     call hdf_read_attribute(group_id,"", "RootGridX2",RootGridX2) ! theta
     call hdf_read_attribute(group_id,"", "RootGridX3",RootGridX3) ! phi
+
+    ! write(*,*) "##### RootGridX1", RootGridX1
 
     athena%x1_min=RootGridX1(1)
     athena%x2_min=RootGridX2(1)
@@ -112,10 +121,40 @@ contains
     !   athena%arb_grid = .false.
     ! endif
 
-    if (athena%arb_grid .or. lignore_voro) then
+    if (athena%arb_grid .and. .not. lignore_voro) then
+      write(*,*) "Using voronoi tesselation for athena grid.."
       return
 
+    elseif (lignore_voro) then
+      write(*,*) "Will write AMR/SMR dumpfile to regular mcfost grid"
+      grid_type = athena%coord
+      write(*,*) "######### grid type is ", grid_type
+
+      write(*,*) "athena theta values", athena%x2_max, athena%x2_min
+
+      lregular_theta = .true.
+      theta_max = 0.5 * pi - athena%x2_min
+
+      if (lscale_length_units) then
+         write(*,*) 'Lengths are rescaled by ', real(scale_length_units_factor)
+      else
+         scale_length_units_factor = 1.0
+      endif
+
+      disk_zone(1)%geometry = grid_type
+      disk_zone(1)%rin  = athena%x1_min * scale_length_units_factor
+      disk_zone(1)%edge = 0.0
+      disk_zone(1)%rmin = disk_zone(1)%rin
+      disk_zone(1)%rout = athena%x1_max * scale_length_units_factor
+      disk_zone(1)%rmax = disk_zone(1)%rout
+
+      write(*,*) "n_rad=", n_rad, "nz=", nz, "n_az=", n_az
+      write(*,*) "rin=", real(disk_zone(1)%rin), "rout=", real(disk_zone(1)%rout)
+      return
+
+
     else
+      write(*,*) "Athena grid matches MCFOST grid.."
       ! Updating mcfost parameters
       ! call warning("athena : forcing spherical grid") ! only spherical grid is implemented for now
 
@@ -173,7 +212,7 @@ contains
     real, dimension(:,:,:,:,:), allocatable :: data
 
     real(kind=dp), dimension(:,:,:), allocatable :: rho, vx1, vx2, vx3 ! todo : we can save memory and only data to directly pass it to mcfost
-    real(kind=dp), dimension(:,:,:), allocatable :: rho_tmp, vx1_tmp, vx2_tmp, vx3_tmp, x1_tmp, x2_tmp, x3_tmp, v_tmp
+    real(kind=dp), dimension(:,:,:), allocatable :: rho_tmp, vx1_tmp, vx2_tmp, vx3_tmp, x1_tmp, x2_tmp, x3_tmp, v_tmp, v_sum
     real(kind=dp), dimension(:), allocatable :: rho_a, vx1_a, vx2_a, vx3_a, x1_a, x2_a, x3_a, v_a ! For the arbitrary grids where we need position to be passed to voronoi
     real(kind=dp), dimension(:), allocatable :: dx, dy, dz
     real(kind=dp), dimension(:), allocatable :: x1f_tmp, x2f_tmp, x3f_tmp, vel_tmp, icell_arr
@@ -206,6 +245,8 @@ contains
     z = 0.0
 
     Omega_p = (1.0/(corotation_radius**2.0)**(3.0/2.0))**(1.0/2.0)
+
+    write(*,*) "########### lignore_voro, athena%arb_grid", lignore_voro, athena%arb_grid
 
     usolarmass = 1.0_dp
     ulength_au = 1.0_dp
@@ -399,6 +440,7 @@ contains
       write(*,*) "Athena++ data successfully read and reshaped. "
       deallocate(data, x1v, x2v, x3v, x1_tmp, x2_tmp, x3_tmp, v_tmp, x1f, x2f, x3f)
       write(*,*) 'Total grid volume ', real(sum(v_a))
+      write(*,*) 'Analytic grid volume ', 2.0/3.0*pi*( maxval(x1_a)**3 - minval(x1_a)**3)*(cos(minval(x2_a)) - cos(maxval(x2_a)))
   endif
 
   if (athena%arb_grid .and. .not. lignore_voro) then
@@ -456,7 +498,7 @@ contains
         call to_cartesian_velocities(vx1_a, vx2_a, vx3_a, vxx, vyy, vzz, x1_a, x2_a, x3_a, athena%coord)
 
         vfield_coord = 0
-        write(*,*) "Data successfully from " , coord_name, " to Cartesian ", athena%coord
+        write(*,*) "Data successfully converted from " , coord_name, " to Cartesian ", athena%coord
       else
         ! Already in Cartesian
         xx = x1_a
@@ -488,22 +530,10 @@ contains
 
       return
     endif
+    write(*,*) "athena%arb_grid", athena%arb_grid, "lignore_voro", lignore_voro
 
     if (athena%arb_grid .and. lignore_voro) then
       write(*,*) "Writing AMR/SMR file to standard MCFOST grid.."
-      !  indice_cellule_cyl(xin,yin,zin, icell)
-
-
-      rho_a(il:iu) = reshape(data(:,:,:,iblock,1), (/size(data(:,:,:,iblock,1))/) )
-      vx1_a(il:iu) = reshape(data(:,:,:,iblock,3), (/size(data(:,:,:,iblock,3))/) )
-      vx2_a(il:iu) = reshape(data(:,:,:,iblock,4), (/size(data(:,:,:,iblock,4))/) )
-      vx3_a(il:iu) = reshape(data(:,:,:,iblock,5), (/size(data(:,:,:,iblock,5))/) )
-
-      call meshgrid_3d(x1v(:, iblock), x2v(:, iblock), x3v(:, iblock), x1_tmp, x2_tmp, x3_tmp)  ! (x, y, z, xx, yy, zz)
-
-      x1_a(il:iu) = reshape(x1_tmp, (/size(x1_tmp)/) )
-      x2_a(il:iu) = reshape(x2_tmp, (/size(x2_tmp)/) )
-      x3_a(il:iu) = reshape(x3_tmp, (/size(x3_tmp)/) )
 
       ! Need to convert to inertial frame
       ! Convert velocity to correct units
@@ -520,37 +550,68 @@ contains
         enddo
       endif
 
+      allocate(icell_arr(size(vx1_a)))
+
       ! Now figure out the correct icell each AMR grid cell will go into
       densite_gaz = 0.0
       densite_pouss = 0.0
-      do i=1, size(vx1_a)
-        x_tmp = x1_a(i)
-        y_tmp = x2_a(i)
-        z_tmp = x3_a(i)
+      allocate(vfield3d(n_cells,3), stat=alloc_status)
+      vfield3d = 0.0
 
-        call indice_cellule_cyl(x_tmp,y_tmp,z_tmp, icell)
+      write(*,*) "######### disk_zone(1)%rin", disk_zone(1)%rin, "disk_zone(1)%rout", disk_zone(1)%rout
+      write(*,*) "theta_max", theta_max, "theta_min", -theta_max
+      do i=1, size(vx1_a)
+        x_tmp = x1_a(i) * ulength_au
+        y_tmp = x3_a(i)
+        z_tmp = 0.5 * pi - x2_a(i)
+        ! z_tmp = x2_a(i)
+        call indice_cellule_sph(x_tmp,y_tmp,z_tmp, icell)
+
+        if (i<10) then
+          write(*,*) x_tmp, y_tmp, z_tmp, icell
+        endif
 
         icell_arr(i) = icell
 
+        ! write(*,*) "icell write ok?"
+
         if (vfield_coord == 3) then
+          ! write(*,*) "write density.."
+          if (icell > size(densite_gaz)) then
+            write(*,*) i, icell, size(rho_a), size(densite_gaz), size(densite_pouss), x1_a(i), x2_a(i), x3_a(i)
+            cycle
+          endif
+          ! write(*,*) "first",i, icell, size(rho_a), size(densite_gaz), size(densite_pouss), x1_a(i), x2_a(i), x3_a(i)
           densite_gaz(icell) = densite_gaz(icell) +  rho_a(i)*v_a(i)
           densite_pouss(:,icell) = densite_pouss(:,icell) +  rho_a(i)*v_a(i)
 
-          vfield3d(icell,1)  = vx1(i,jj,phik) *  rho_a(i)*v_a(i)! vr
-          vfield3d(icell,2)  =  vx3(i,jj,phik)  *  rho_a(i)*v_a(i)
-          vfield3d(icell,3)  = vx2(i,jj,phik) *  rho_a(i)*v_a(i)! vtheta
+          ! write(*,*) "write velocity.."
+          ! write(*,*) "second",i, icell, size(rho_a), size(densite_gaz), size(densite_pouss)!, vx1_a(i), vx2_a(i), vx3_a(i), rho_a(i), v_a(i)
+          vfield3d(icell,1)  = vfield3d(icell,1) + vx1_a(i) *  rho_a(i)*v_a(i)! vr
+          vfield3d(icell,2)  = vfield3d(icell,2) + vx3_a(i) *  rho_a(i)*v_a(i)
+          vfield3d(icell,3)  = vfield3d(icell,3) + vx2_a(i) *  rho_a(i)*v_a(i)! vtheta
+          ! write(*,*) "Done"
         endif
 
         ! Momentum is conserved.. so sum(mi*vi)/sum(mi) = v
 
       enddo
+      write(*,*) "Done writing to mcfost grid.."
 
      do i=1, size(densite_gaz)
-       vfield3d(i,1) = vfield3d(i,1) / densite_gaz(i)
-       vfield3d(i,2) = vfield3d(i,2) / densite_gaz(i)
-       vfield3d(i,3) = vfield3d(i,3) / densite_gaz(i)
-       densite_gaz(i) = densite_gaz(i) / volume(i)
-       densite_pouss(:,i) = densite_pouss(:,i) / volume(i)
+       if (densite_gaz(i) > 0.0) then
+         vfield3d(i,1) = vfield3d(i,1) / densite_gaz(i)
+         vfield3d(i,2) = vfield3d(i,2) / densite_gaz(i)
+         vfield3d(i,3) = vfield3d(i,3) / densite_gaz(i)
+         densite_gaz(i) = densite_gaz(i) / volume(i)
+         densite_pouss(:,i) = densite_pouss(:,i) / volume(i)
+       else
+         vfield3d(i,1) = 0.0
+         vfield3d(i,2) = 0.0
+         vfield3d(i,3) = 0.0
+         densite_gaz(i) = 0.0
+         densite_pouss(:,i) = 0.0
+       endif
      enddo
 
      ! -- another copy and paste from read_fargo3d
@@ -587,7 +648,7 @@ contains
     endif
 
 
-    if (.not. athena%arb_grid .or. lignore_voro) then
+    if (.not. athena%arb_grid .and. .not. lignore_voro) then
       write(*,*) "Writing athena dumpfile to a standard MCFOST grid..."
 
       ! Convert to non-raw data, ie merge all blocks
