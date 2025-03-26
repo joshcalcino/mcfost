@@ -46,7 +46,7 @@ contains
     real(dp), allocatable, dimension(:,:) :: xyzh,xyzmh_ptmass,vxyz_ptmass,dustfrac,vxyzu,nucleation
     type(dump_h) :: hdr
     logical :: got_h,got_dustfrac,got_itype,tagged,matched
-    logical :: got_temperature,got_u,lpotential,do_nucleation
+    logical :: got_temperature,got_u,lpotential
     integer :: ifile, np0, ntypes0, np_tot, ntypes_tot, ntypes_max, ndustsmall, ndustlarge
 
     ! We first read the number of particules in each phantom file
@@ -734,15 +734,18 @@ contains
     integer :: i
 
     ! Modifying SPH dump
-    if (ldelete_Hill_sphere .or. ldelete_inside_rsph .or. ldelete_outside_rsph .or. ldelete_above_theta) then
+    if (ldelete_Hill_sphere .or. lmask_inside_rsph .or. lmask_outside_rsph .or. lmask_above_theta .or. &
+         ldelete_outside_rsph .or. ldelete_above_theta) then
        allocate(mask(np))
        mask(:) = 0
     endif
 
     if (ldelete_Hill_sphere)  call mask_Hill_sphere(np, nptmass, xyzh, xyzmh_ptmass,ulength, mask)
-    if (ldelete_inside_rsph)  call mask_inside_rsph(np, xyzh, ulength, rsph_min, mask)
-    if (ldelete_outside_rsph) call mask_outside_rsph(np, xyzh, ulength, rsph_max, mask)
-    if (ldelete_above_theta)  call mask_above_theta(np, xyzh, ulength, theta_max, mask)
+    if (lmask_inside_rsph)  call mask_inside_rsph(np, xyzh, ulength, rsph_min, mask)
+    if (lmask_outside_rsph) call mask_outside_rsph(np, xyzh, ulength, rsph_mask_max, mask)
+    if (ldelete_outside_rsph) call delete_outside_rsph(np, xyzh, ulength, rsph_max, mask)
+    if (ldelete_above_theta)  call delete_above_theta(np, xyzh, ulength, theta_max, mask)
+    if (lmask_above_theta)  call mask_above_theta(np, xyzh, ulength, theta_mask_max, mask)
 
     if (lrandomize_azimuth)     call randomize_azimuth(np, xyzh, vxyzu, mask)
     if (lrandomize_gap)         call randomize_gap(np, nptmass, xyzh, vxyzu, xyzmh_ptmass,ulength, gap_factor, .true.)
@@ -758,6 +761,8 @@ contains
           xyzh(1:3,i) = xyzh(1:3,i) - centre(:)
        enddo
     endif
+
+    if (lexpand_z) call expand_z(np, xyzh, vxyzu, expand_z_factor)
 
     return
 
@@ -779,7 +784,8 @@ contains
     ! extra_heating is in W
 
     use constantes, only : au_to_cm,Msun_to_g,erg_to_J,m_to_cm, Lsun, cm_to_mum, deg_to_rad, Ggrav
-    use parametres, only : ldudt_implicit,ufac_implicit, lplanet_az, planet_az, lfix_star, RT_az_min, RT_az_max, RT_n_az
+    use parametres, only : ldudt_implicit,ufac_implicit, lplanet_az, planet_az, lfix_star, RT_az_min, RT_az_max, RT_n_az, &
+         idelta_planet_az, delta_planet_az
     use parametres, only : lscale_length_units,scale_length_units_factor,lscale_mass_units,scale_mass_units_factor
 
     ! Input arguments
@@ -1072,13 +1078,21 @@ contains
        if (nptmass == 2) which_planet=2
        if (which_planet > nptmass) call error("specified sink particle does not exist")
 
-       RT_n_az = 1
+
        RT_az_min = planet_az + atan2(xyzmh_ptmass(2,which_planet) - xyzmh_ptmass(2,1), &
             xyzmh_ptmass(1,which_planet) - xyzmh_ptmass(1,1)) &
             / deg_to_rad
-       RT_az_max = RT_az_min
        write(*,*) "Moving sink particle #", which_planet, "to azimuth =", planet_az
        write(*,*) "WARNING: updating the azimuth to:", RT_az_min
+
+       if (idelta_planet_az == 0) then
+          RT_n_az = 1
+          RT_az_max = RT_az_min
+       else
+          RT_n_az = 2 * idelta_planet_az+1
+          RT_az_min = RT_az_min - delta_planet_az
+          RT_az_max = RT_az_min + 2*delta_planet_az
+       endif
     endif
 
     if (lfix_star) then

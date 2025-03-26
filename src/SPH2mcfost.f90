@@ -4,7 +4,7 @@ module SPH2mcfost
   use constantes
   use utils
   use sort, only : find_kth_smallest_inplace
-  use density, only : normalize_dust_density, reduce_density, read_Voronoi_fits_file
+  use density, only : normalize_dust_density, reduce_density, read_Voronoi_fits_file, find_non_empty_cell
   use read_phantom, only : read_phantom_bin_files, read_phantom_hdf_files
   use sort, only : index_quicksort
   use stars, only : compute_stellar_parameters
@@ -127,6 +127,8 @@ contains
     ! Deleting particles/cells in masked areas (Hill sphere, etc)
     if (allocated(mask)) call delete_masked_particles()
 
+    call find_non_empty_cell()
+
     return
 
   end subroutine setup_SPH2mcfost
@@ -220,9 +222,9 @@ contains
 
     real, allocatable, dimension(:) :: a_SPH, log_a_SPH, rho_dust
     real(dp), allocatable, dimension(:) :: gsize, grainsize_f, dN_ds, N_monomers, rho_monomers
-    real(dp), dimension(4) :: lambsol, lambguess
+    real(dp), dimension(4) :: lambsol
 
-    real(dp) :: mass, somme, Mtot, Mtot_dust, facteur, a, mass_factor
+    real(dp) :: mass, Mtot, Mtot_dust, facteur, a, mass_factor
     real :: f, limit_threshold, density_factor
     integer :: icell, l, k, iSPH, n_force_empty, i, id_n, ierr, N_pb
 
@@ -242,7 +244,7 @@ contains
 
     limit_threshold = (1.0 - SPH_keep_particles) * 0.5 ;
 
-    icell_ref = 1
+    icell1 = 1
 
     write(*,*) "# Farthest particules :"
     write(*,*) "x =", minval(x), maxval(x)
@@ -302,8 +304,8 @@ contains
     call allocate_densities(n_cells_max = n_SPH + n_etoiles) ! we allocate all the SPH particule for libmcfost
     ! Tableau de densite et masse de gaz
     !do icell=1,n_cells
-    !   densite_gaz(icell) = rho(icell) / masse_mol_gaz * m3_to_cm3 ! rho is in g/cm^3 --> part.m^3
-    !   masse_gaz(icell) =  densite_gaz(icell) * masse_mol_gaz * volume(icell)
+    !   densite_gaz(icell) = rho(icell) / mu_mH * m3_to_cm3 ! rho is in g/cm^3 --> part.m^3
+    !   masse_gaz(icell) =  densite_gaz(icell) * mu_mH * volume(icell)
     !enddo
     !masse_gaz(:) = masse_gaz(:) * AU3_to_cm3
 
@@ -312,7 +314,7 @@ contains
        iSPH = Voronoi(icell)%id
        if (iSPH > 0) then
           masse_gaz(icell)    = massgas(iSPH) * Msun_to_g ! en g
-          densite_gaz(icell)  = masse_gaz(icell) /  (masse_mol_gaz * volume(icell) * AU3_to_m3)
+          densite_gaz(icell)  = masse_gaz(icell) /  (mu_mH * volume(icell) * AU3_to_m3)
        else ! star
           masse_gaz(icell)    = 0.
           densite_gaz(icell)  = 0.
@@ -349,7 +351,7 @@ contains
        mass = 0.0
        do icell=1,n_cells
           iSPH = Voronoi(icell)%id
-          mass = mass +  massgas(iSPH) * dust_moments(3,iSPH) * 12.*amu/mass_per_H
+          if (iSPH > 0) mass = mass +  massgas(iSPH) * dust_moments(3,iSPH) * 12.*amu/mass_per_H
        enddo
        write(*,*) "Dust mass in hydro model is ", real(mass), "Msun"
 
@@ -421,7 +423,7 @@ contains
           enddo !l
           mass = mass * volume(icell)
 
-          mdust =  massgas(iSPH) * dust_moments(3,iSPH) * 12.*amu/mass_per_H
+          if (iSPH > 0) mdust =  massgas(iSPH) * dust_moments(3,iSPH) * 12.*amu/mass_per_H
           mdust_tot = mdust_tot + mdust
 
           if (mass > tiny_dp) then
@@ -573,7 +575,7 @@ contains
     if (present(mask)) then
        if (allocated(mask)) then
           do icell=1,n_cells
-             iSPH = Voronoi(icell)%id
+             iSPH = Voronoi(icell)%original_id
              if (iSPH > 0) then
                 Voronoi(icell)%masked = mask(iSPH)
              else
@@ -623,15 +625,6 @@ contains
             (1.0*n_force_empty)/n_cells * 100, "% of cells"
     endif
 
-    search_not_empty : do k=1,n_grains_tot
-       do icell=1, n_cells
-          if (densite_pouss(k,icell) > 0.0_sp) then
-             icell_not_empty = icell
-             exit search_not_empty
-          endif
-       enddo !icell
-    enddo search_not_empty
-
     if (ndusttypes >= 1) deallocate(a_SPH,log_a_SPH,rho_dust)
 
     write(*,*) 'Total  gas mass in model :',  real(sum(masse_gaz) * g_to_Msun),' Msun'
@@ -655,7 +648,7 @@ contains
     ! mask : -1 means skip, 0 means transparent, 1 means compute atomic transfer
     ! ************************************************************************************ !
     use parametres
-    use constantes,   only : masseH
+    use constantes,   only : mH
     use Voronoi_grid, only : Voronoi, volume
     use disk_physics, only : compute_othin_sublimation_radius
     use mem
@@ -680,7 +673,7 @@ contains
     !-> fills element abundances structures for elements
     call alloc_atomrt_grid
     call read_abundance
-    rho_to_nH = 1d3 / masseH / wght_per_H !convert from density to number density nHtot
+    rho_to_nH = 1d3 / mH / wght_per_H !convert from density to number density nHtot
 
     Vxmax = 0
     Vymax = 0
@@ -829,7 +822,7 @@ contains
 
     k=0
     do icell=1, n_cells
-       if (Voronoi(icell)%masked == 1) then
+       if (Voronoi(icell)%masked == 1) then ! 1 is transparent
           k=k+1
           masse_gaz(icell)       = 0.
           densite_gaz(icell)     = 0.

@@ -86,7 +86,7 @@ subroutine readmolecule(imol)
 
   read(1,*) junk
   read(1,*) molecularWeight
-  masse_mol = masseH * molecularWeight
+  mol(imol)%molecularWeight = molecularWeight
 
   read(1,*) junk
   read(1,*) nLevels
@@ -727,7 +727,7 @@ subroutine read_phase_function(phase_function_file)
 
   character(len=512), intent(in) :: phase_function_file
 
-  integer :: status, readwrite, unit, blocksize,nfound,group,firstpix,nbuffer,npixels, hdutype, i
+  integer :: status, readwrite, unit, blocksize,nfound,group,firstpix,nbuffer,npixels, i
   real :: nullval
   integer, dimension(2) :: naxes
   logical :: anynull

@@ -2,6 +2,7 @@ module read_athena
 
   use mem, only : allocate_densities
   use parametres
+  use constantes
   use messages
   use mcfost_env
   use grid

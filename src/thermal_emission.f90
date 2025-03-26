@@ -456,7 +456,7 @@ subroutine init_reemission(lheating,dudt)
   !$omp parallel default(none) &
   !$omp private(id,icell,T,lambda,integ, Qcool,Qcool0,extra_heating,Qcool_minus_extra_heating,Temp,u_o_dt) &
   !$omp shared(cst_E,kappa_abs_LTE,kappa_factor,volume,B,lextra_heating,xT_ech,log_Qcool_minus_extra_heating,J0) &
-  !$omp shared(n_T,n_cells,p_n_cells,n_lambda,tab_Temp,ldudt_implicit,ufac_implicit,dudt,lRE_nLTE,lvariable_dust,icell_ref)
+  !$omp shared(n_T,n_cells,p_n_cells,n_lambda,tab_Temp,ldudt_implicit,ufac_implicit,dudt,lRE_nLTE,lvariable_dust,icell1)
   id = 1 ! Pour code sequentiel
   !$ id = omp_get_thread_num() + 1
 
@@ -535,8 +535,8 @@ subroutine init_reemission(lheating,dudt)
         do T=1, n_T
            integ3(0) = 0.0
            do lambda=1, n_lambda
-              ! Pas besoin de cst , ni du volume (normalisation a 1)
-              integ3(lambda) = integ3(lambda-1) + kappa_abs_LTE(icell,lambda) * kappa_factor(icell) * dB_dT(lambda,T)
+              ! Pas besoin de cst , ni du volume, ni kappa factor (normalisation a 1)
+              integ3(lambda) = integ3(lambda-1) + kappa_abs_LTE(icell,lambda)  * dB_dT(lambda,T)
            enddo !l
 
            ! Normalisation a 1
@@ -661,7 +661,7 @@ subroutine Temp_LTE(id, icell, Ti, Temp, frac)
   if (lvariable_dust) then
      p_icell = icell
   else
-     p_icell = icell_ref
+     p_icell = icell1
   endif
 
   if (id==0) then
@@ -710,8 +710,6 @@ end subroutine Temp_LTE
 subroutine im_reemission_LTE(id,icell,p_icell,aleat1,aleat2,lambda)
 ! Calcul de la temperature de la cellule et stokage energie recue + T
 ! Reemission d'un photon a la bonne longeur d'onde
-
-  use radiation_field, only : xKJ_abs, E0
 
   implicit none
 
@@ -874,8 +872,6 @@ subroutine Temp_finale()
 ! Cas de l'"absoprtion continue"
 ! C. Pinte
 ! 24/01/05
-
-  use radiation_field, only : xKJ_abs, E0
 
   implicit none
 
@@ -1785,7 +1781,7 @@ subroutine repartition_energie(lambda)
   if (lvariable_dust) then
      p_icell => icell
   else
-     p_icell => icell_ref
+     p_icell => icell1
   endif
 
   cst_wl_max = log(huge_real)-1.0e-4
@@ -1960,7 +1956,7 @@ integer function select_absorbing_grain(lambda,icell, aleat, heating_method) res
   if (lvariable_dust) then
      p_icell = icell
   else
-     p_icell = icell_ref
+     p_icell = icell1
   endif
 
   ! We scale the random number so that it is between 0 and kappa_sca (= last value of CDF)
