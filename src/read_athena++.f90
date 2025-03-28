@@ -156,8 +156,6 @@ contains
 
   subroutine read_athena_model()
 
-    ! athena data is ordered in x1 = r, x2 = theta, x3 = phi
-
     integer :: n_blocks
 
     integer :: ierr, alloc_status, n_variables, n_etoiles_old
@@ -169,7 +167,7 @@ contains
     integer, dimension(:,:), allocatable :: logical_locations
     real, dimension(:,:,:,:,:), allocatable :: data
 
-    real(kind=dp), dimension(:,:,:), allocatable :: rho, vx1, vx2, vx3 ! todo : we can save memory and only data to directly pass it to mcfost
+    real(kind=dp), dimension(:,:,:), allocatable :: rho, vx1, vx2, vx3, x1, x2, x3 ! todo : we can save memory and only data to directly pass it to mcfost
     real(kind=dp), dimension(:,:,:), allocatable :: rho_tmp, vx1_tmp, vx2_tmp, vx3_tmp, x1_tmp, x2_tmp, x3_tmp, v_tmp
     real(kind=dp), dimension(:), allocatable :: rho_a, vx1_a, vx2_a, vx3_a, x1_a, x2_a, x3_a, v_a ! For the arbitrary grids where we need position to be passed to voronoi
     real(kind=dp), dimension(:), allocatable :: dx, dy, dz
@@ -197,12 +195,12 @@ contains
 
     ! print_messages = .true.
     ! call hdf_set_print_messages(print_messages)
-    write(*,*) "!!!!!!!!!!!!!!!The corotation radius of the planet is ", corotation_radius
+    write(*,*) "Assuming corotating frame with the corotation radius of the planet ", corotation_radius
     x = corotation_radius
     y = 0.0
     z = 0.0
 
-    Omega_p = (1.0/(corotation_radius**2.0)**(3.0/2.0))**(1.0/2.0)
+    Omega_p = 1.0/(corotation_radius)**(3.0/2.0)
 
     usolarmass = 1.0_dp
     ulength_au = 1.0_dp
@@ -344,6 +342,15 @@ contains
     else
       nx1 = athena%nx1 ; nx2 = athena%nx2 ; nx3 = athena%nx3
       allocate(rho(nx1,nx2,nx3), vx1(nx1,nx2,nx3), vx2(nx1,nx2,nx3), vx3(nx1,nx2,nx3), stat=alloc_status)
+      allocate(xx(nx1), yy(nx2), zz(nx3), stat=alloc_status)
+
+      allocate(x1v(bs1, n_blocks), x2v(bs2, n_blocks), x3v(bs3, n_blocks), stat=alloc_status)
+
+      call hdf_read_dataset(group_id,"x1v",x1v)
+      call hdf_read_dataset(group_id,"x2v",x2v)
+      call hdf_read_dataset(group_id,"x3v",x3v)
+
+      allocate(x1_tmp(bs1, bs2, bs3), x2_tmp(bs1, bs2, bs3), x3_tmp(bs1, bs2, bs3), stat=alloc_status)
     endif
     if (alloc_status > 0) call error('Allocation error athena++ rho')
 
@@ -359,8 +366,13 @@ contains
     ! allocate(tmp_flatten(bs1*bs2*bs3), stat=alloc_status)
     if (alloc_status > 0) call error('Allocation error athena++ rho')
 
+    ! Athena cartesian: x, y, z,
+    ! Athena cylindrical: r, phi, z
+    ! Athena spherical: r, theta, phi
+    ! MCFOST: 1 = cartesian, 2 = cylindrical, 3 = spherical
+    vfield_coord = disk_zone(1)%geometry + 1
+
     if (athena%arb_grid) then
-      ! Now... What do we do here...
       i = 1
       do iblock=1, n_blocks
          iu = iblock*bs1*bs2*bs3
@@ -380,6 +392,14 @@ contains
          call volumegrid_3d(x1f(:, iblock), x2f(:, iblock), x3f(:, iblock), v_tmp, coord=athena%coord)
 
          v_a(il:iu) = reshape(v_tmp, (/size(v_tmp)/) )
+
+         if (athena%corotating_frame) then
+           if (vfield_coord == 3) then ! Spherical polar
+             vx3_a(il:iu) = vx3_a(il:iu) + x1_a * sin(x2_a) * Omega_p
+           else if (vfield_coord == 2) then ! Cylindrical
+             vx2_a(il:iu) = vx2_a(il:iu) + x1_a * Omega_p
+           endif
+         endif
 
       enddo
 
@@ -496,13 +516,40 @@ contains
 
          rho(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,1)
          vx1(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,3) ! vr
-         vx2(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,4) ! vtheta
-         vx3(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,5) ! vphi
-      enddo
-      deallocate(data)
 
-      !write(*,*) rho(1,1,1), rho(1,1,2), rho(1,2,1), rho(2,1,1) ! test ok with python
-      !write(*,*) rho(101,101,101) ! test ok with python
+         if (athena%corotating_frame) then
+           if (vfield_coord == 3) then ! Spherical polar
+             vx2(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,4) ! vtheta
+             call meshgrid_3d(x1v(:, iblock), x2v(:, iblock), x3v(:, iblock), x1_tmp, x2_tmp, x3_tmp)
+             vx3(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,5) + x1_tmp * sin(x2_tmp) * Omega_p
+           else if (vfield_coord == 2) then ! Cylindrical
+             call meshgrid_3d(x1v(:, iblock), x2v(:, iblock), x3v(:, iblock), x1_tmp, x2_tmp, x3_tmp)
+             vx2(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,4) + x1_tmp * Omega_p
+           endif
+         else
+           if (vfield_coord == 3) then ! Spherical polar
+             vx3(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,5)
+           else if (vfield_coord == 2) then ! Cylindrical
+             vx2(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,4) + x1_tmp * Omega_p
+           endif
+         endif
+
+         rho(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,1)
+         vx1(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,3) ! vr
+         vx2(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,4) ! vtheta
+         if (athena%corotating_frame) then
+           call meshgrid_3d(x1v(:, iblock), x2v(:, iblock), x3v(:, iblock), x1_tmp, x2_tmp, x3_tmp)
+           vx3(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,5) + x1_tmp * sin(x2_tmp) * Omega_p ! vphi
+         else
+           vx3(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,5) ! vphi
+         endif
+
+      enddo
+      if (athena%corotating_frame) then
+        deallocate(data, x1_tmp, x2_tmp, x3_tmp, x1v, x2v, x3v)
+      else
+        deallocate(data)
+      endif
 
       !-----------------------------------
       ! Passing data to mcfost
@@ -513,16 +560,6 @@ contains
       allocate(vfield3d(n_cells,3), stat=alloc_status)
       if (alloc_status /= 0) call error("memory allocation error athena++ vfield3d")
 
-      write(*,*) "Constant spatial distribution"
-      write(*,*) vx1(2,2,2), vx2(2,2,2), vx3(2,2,2)
-      write(*,*) "ok"
-
-      ! Athena cartesian: x, y, z,
-      ! Athena cylindrical: r, phi, z
-      ! Athena spherical: r, theta, phi
-      ! MCFOST: 1 = cartesian, 2 = cylindrical, 3 = spherical
-      vfield_coord = disk_zone(1)%geometry + 1
-      write(*,*) "vfield_coord", vfield_coord
       if (vfield_coord == 2) then
         do i=1, n_rad
            ! jj= 0
@@ -535,12 +572,7 @@ contains
                  densite_pouss(:,icell) = rho(i,jj,phik) * udens
 
                  vfield3d(icell,1)  = vx1(i,jj,phik) * uvelocity ! vr
-
-                 if (athena%corotating_frame) then
-                   vfield3d(icell,2)  = (vx2(i,jj,phik) + r_grid(icell)/ulength_au * Omega_p) * uvelocity
-                 else
-                   vfield3d(icell,2)  = vx2(i,jj,phik) * uvelocity ! vphi
-                 endif
+                 vfield3d(icell,2)  = vx2(i,jj,phik) * uvelocity ! vphi
                  vfield3d(icell,3)  = vx3(i,jj,phik) * uvelocity ! vz
               enddo ! k
            enddo
@@ -559,12 +591,7 @@ contains
                  densite_pouss(:,icell) = rho(i,jj,phik) * udens
 
                  vfield3d(icell,1)  = vx1(i,jj,phik) * uvelocity! vr
-                 ! I guess the below line is only true if the simulation is done in a co-rotating frame
-                 if (athena%corotating_frame) then
-                   vfield3d(icell,2)  = (vx3(i,jj,phik) + r_grid(icell)/ulength_au * Omega_p) * uvelocity ! vphi
-                 else
-                   vfield3d(icell,2)  =  vx3(i,jj,phik)  * uvelocity
-                 endif
+                 vfield3d(icell,2)  = vx3(i,jj,phik)  * uvelocity
                  vfield3d(icell,3)  = vx2(i,jj,phik) * uvelocity! vtheta
               enddo ! k
            enddo bz
