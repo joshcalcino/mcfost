@@ -503,6 +503,8 @@ contains
       ! call allocate_densities()
 
       ! Convert to non-raw data, ie merge all blocks
+      write(*,*) "Number of blocks", n_blocks
+      write(*,*) "Omega_p", Omega_p 
       do iblock=1, n_blocks
          ! Calculate destination indices
          il = logical_locations(1,iblock) * bs1
@@ -516,6 +518,8 @@ contains
 
          rho(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,1)
          vx1(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,3) ! vr
+
+         write(*,*) "vel3", data(:,1,1,iblock,5)
 
          if (athena%corotating_frame) then
            if (vfield_coord == 3) then ! Spherical polar
@@ -543,6 +547,8 @@ contains
          else
            vx3(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,5) ! vphi
          endif
+
+         write(*,*) "vel3", vx3(:,1,1,)
 
       enddo
       if (athena%corotating_frame) then
@@ -591,7 +597,7 @@ contains
                  densite_pouss(:,icell) = rho(i,jj,phik) * udens
 
                  vfield3d(icell,1)  = vx1(i,jj,phik) * uvelocity! vr
-                 vfield3d(icell,2)  = vx3(i,jj,phik)  * uvelocity
+                 vfield3d(icell,2)  = vx3(i,jj,phik) * uvelocity
                  vfield3d(icell,3)  = vx2(i,jj,phik) * uvelocity! vtheta
               enddo ! k
            enddo bz
