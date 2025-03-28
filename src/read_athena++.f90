@@ -504,7 +504,7 @@ contains
 
       ! Convert to non-raw data, ie merge all blocks
       write(*,*) "Number of blocks", n_blocks
-      write(*,*) "Omega_p", Omega_p 
+      write(*,*) "Omega_p", Omega_p
       do iblock=1, n_blocks
          ! Calculate destination indices
          il = logical_locations(1,iblock) * bs1
@@ -548,7 +548,7 @@ contains
            vx3(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,5) ! vphi
          endif
 
-         write(*,*) "vel3", vx3(:,1,1,)
+         write(*,*) "vel3", vx3(:,1,1)
 
       enddo
       if (athena%corotating_frame) then
