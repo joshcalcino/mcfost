@@ -110,9 +110,6 @@ contains
     call hdf_read_attribute(group_id,"", "Time",time)
     athena%time = time
 
-!    call hdf_read_attribute(group_id,"", "VariableNames",VariableNames) ! No interface yet for array of strings
-!    if (trim(VariableNames) /= "rho") call error("mcfost cannot read VariableNames in athena++ dump")
-
     if (athena%arb_grid) then
       return
 
@@ -183,7 +180,7 @@ contains
     integer :: nx1, nx2, nx3, bs1, bs2, bs3, unit
     integer :: i, iblock, il, jl, kl, iu, ju, ku, j, jj, phik, icell, it, jt, kt
 
-    real(dp) :: Ggrav_athena, umass, usolarmass, ulength, utime, udens, uvelocity, ulength_au, mass, facteur
+    real(dp) :: Ggrav_athena, umass, usolarmass, ulength, utime, udens, uvelocity, ulength_au, mass, facteur, dxs
     type(star_type), dimension(:), allocatable :: etoile_old
     character(12) :: coord_name
 
@@ -513,16 +510,9 @@ contains
         ! Probably processed through uniform.py, coordinates can be bugged
         ! rewrite the angular coordinate manually
 
-        write(*,*) "########!!!!!!!!!theta_max", theta_max
-        !
-        ! athena%x1_min=RootGridX1(1)
-        ! athena%x2_min=RootGridX2(1)
-        ! athena%x3_min=RootGridX3(1)
-        !
-        ! athena%x1_max=RootGridX1(2)
-        ! athena%x2_max=RootGridX2(2)
-        ! athena%x3_max=RootGridX3(2)
-
+        ! Compute grid spacing
+        dxs = (athena%x2_max - athena%x2_min) / real(athena%nx2)
+        x2v(:, 1) = [(athena%x2_min + dxs * (real(i) - 0.5), i = 1, athena%nx2)]
 
       endif
       do iblock=1, n_blocks
