@@ -510,14 +510,14 @@ contains
         ! rewrite the angular coordinate manually
 
         write(*,*) "########!!!!!!!!!theta_max", theta_max
-
-        athena%x1_min=RootGridX1(1)
-        athena%x2_min=RootGridX2(1)
-        athena%x3_min=RootGridX3(1)
-
-        athena%x1_max=RootGridX1(2)
-        athena%x2_max=RootGridX2(2)
-        athena%x3_max=RootGridX3(2)
+        ! 
+        ! athena%x1_min=RootGridX1(1)
+        ! athena%x2_min=RootGridX2(1)
+        ! athena%x3_min=RootGridX3(1)
+        !
+        ! athena%x1_max=RootGridX1(2)
+        ! athena%x2_max=RootGridX2(2)
+        ! athena%x3_max=RootGridX3(2)
 
 
       endif
