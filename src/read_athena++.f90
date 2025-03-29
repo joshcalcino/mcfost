@@ -505,6 +505,22 @@ contains
       ! Convert to non-raw data, ie merge all blocks
       write(*,*) "Number of blocks", n_blocks
       write(*,*) "Omega_p", Omega_p
+      if (n_blocks == 1) then
+        ! Probably processed through uniform.py, coordinates can be bugged
+        ! rewrite the angular coordinate manually
+
+        write(*,*) "########!!!!!!!!!theta_max", theta_max
+
+        athena%x1_min=RootGridX1(1)
+        athena%x2_min=RootGridX2(1)
+        athena%x3_min=RootGridX3(1)
+
+        athena%x1_max=RootGridX1(2)
+        athena%x2_max=RootGridX2(2)
+        athena%x3_max=RootGridX3(2)
+
+
+      endif
       do iblock=1, n_blocks
          ! Calculate destination indices
          il = logical_locations(1,iblock) * bs1
