@@ -525,11 +525,11 @@ contains
            if (vfield_coord == 3) then ! Spherical polar
              vx2(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,4) ! vtheta
              call meshgrid_3d(x1v(:, iblock), x2v(:, iblock), x3v(:, iblock), x1_tmp, x2_tmp, x3_tmp)
-             ! write(*, *) "x1_tmp", x1_tmp(:10, :, :)
-             write(*, *) "x2_tmp", x2_tmp(:10, :, :)
-             ! write(*, *) "x1v(:, iblock)", x1v(:, iblock) ! x2v(:, iblock), x3v(:, iblock)
+             write(*, *) "x1_tmp", x1_tmp(:10, 1, 1)
+             write(*, *) "x2_tmp", x2_tmp(:10, 1, 1)
+             write(*, *) "x1v(:, iblock)", x1v(:10, iblock) ! x2v(:, iblock), x3v(:, iblock)
              write(*, *) "x2v(:, iblock)", x2v(:10, iblock)
-             ! write(*, *) "x3v(:, iblock)", x3v(:, iblock)
+             write(*, *) "x3v(:, iblock)", x3v(:10, iblock)
              vx3(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,5) + x1_tmp * sin(x2_tmp) * Omega_p
            else if (vfield_coord == 2) then ! Cylindrical
              call meshgrid_3d(x1v(:, iblock), x2v(:, iblock), x3v(:, iblock), x1_tmp, x2_tmp, x3_tmp)
