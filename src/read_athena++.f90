@@ -101,6 +101,10 @@ contains
     athena%x2_max=RootGridX2(2)
     athena%x3_max=RootGridX3(2)
 
+    write(*,*) "######!!!!!THE GRID", athena%x1_min, athena%x1_max
+    write(*,*) "######!!!!!THE GRID", athena%x2_min, athena%x2_max
+    write(*,*) "######!!!!!THE GRID", athena%x3_min, athena%x3_max
+
     athena%log_spacing = (RootGridX1(3) > 1.0)
 
     call hdf_read_attribute(group_id,"", "Time",time)
@@ -510,7 +514,7 @@ contains
         ! rewrite the angular coordinate manually
 
         write(*,*) "########!!!!!!!!!theta_max", theta_max
-        ! 
+        !
         ! athena%x1_min=RootGridX1(1)
         ! athena%x2_min=RootGridX2(1)
         ! athena%x3_min=RootGridX3(1)
