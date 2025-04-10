@@ -107,6 +107,8 @@ contains
 
     athena%log_spacing = (RootGridX1(3) > 1.0)
 
+    if (athena%log_spacing) write(*,*) "Log spaced grid"
+
     call hdf_read_attribute(group_id,"", "Time",time)
     athena%time = time
 
@@ -529,7 +531,7 @@ contains
          rho(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,1)
          vx1(il+1:iu,jl+1:ju,kl+1:ku) = data(:,:,:,iblock,3) ! vr
 
-         write(*,*) "vel3", data(:10,1,1,iblock,5)
+         write(*,*) "vel3", iblock, data(:10,1,1,iblock,5)
 
          if (athena%corotating_frame) then
            if (vfield_coord == 3) then ! Spherical polar
