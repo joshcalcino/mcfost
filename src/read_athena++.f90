@@ -107,7 +107,11 @@ contains
 
     athena%log_spacing = (RootGridX1(3) > 1.0)
 
-    if (athena%log_spacing) write(*,*) "Log spaced grid"
+    if (athena%log_spacing) then
+      write(*,*) "Log spaced grid"
+    else
+      write(*,*) "linear spaced grid, apparently"
+    endif
 
     call hdf_read_attribute(group_id,"", "Time",time)
     athena%time = time
