@@ -1474,10 +1474,11 @@ end subroutine define_cylindrical_grid
     character(len=128) :: filename
 
     integer :: i, j, iunit, ios
-    real(dp) :: buffer, t, radius
+    real(dp) :: buffer, t, radius, length_conv
     logical :: lerror = .false.
 
     iunit = 1
+    length_conv = 1.0 
 
     ! Unit test to compare with fargo3d domain_z.dat
     filename = trim(fargo3d%dir)//"/domain_z.dat" ! 0 means vertical +z
@@ -1506,9 +1507,14 @@ end subroutine define_cylindrical_grid
        read(iunit,*) buffer
     enddo
 
+    if (lcgs_units) then
+       ! grid is in centimeters, need to change to au 
+       length_conv = cm_to_au
+    endif
+
     do i=0,n_rad
        read(iunit,*) radius
-       radius = radius * scale_length_units_factor
+       radius = radius * scale_length_units_factor * length_conv
        if (radius - r_lim(i) > 1e-6 * radius) then
           write (*,*) i, "fargo3d r=", radius, "mcfost r=", r_lim(i)
           lerror=.true.
