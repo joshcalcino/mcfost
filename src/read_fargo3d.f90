@@ -63,8 +63,10 @@ contains
           read(val,*,iostat=ios) fargo3d%xmax
        case("YMIN")
           read(val,*,iostat=ios) fargo3d%ymin 
+          fargo3d%ymin = fargo3d%ymin * length_conv
        case("YMAX")
           read(val,*,iostat=ios) fargo3d%ymax 
+          fargo3d%ymax = fargo3d%ymax * length_conv
        case("ZMIN")
           read(val,*,iostat=ios) fargo3d%zmin
        case("ZMAX")
@@ -118,10 +120,10 @@ contains
        write(*,*) 'Lengths are rescaled by ', real(scale_length_units_factor)
     endif
 
-    disk_zone(1)%rin  = fargo3d%ymin * scale_length_units_factor * length_conv
+    disk_zone(1)%rin  = fargo3d%ymin * scale_length_units_factor
     disk_zone(1)%edge=0.0
     disk_zone(1)%rmin = disk_zone(1)%rin
-    disk_zone(1)%rout = fargo3d%ymax * scale_length_units_factor * length_conv
+    disk_zone(1)%rout = fargo3d%ymax * scale_length_units_factor
     disk_zone(1)%rmax = disk_zone(1)%rout
 
     write(*,*) "n_rad=", n_rad, "nz=", nz, "n_az=", n_az
