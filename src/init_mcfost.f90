@@ -221,12 +221,13 @@ subroutine set_default_variables()
   image_offset_centre(:) = (/0.0,0.0,0.0/)
   loverwrite_s12 = .false.
   lnot_random_Voronoi = .false.
+  lignore_sink = .false.
+  lcorotating_frame = .false.
   lignore_sink=.false.
   lstar_bb = .false.
   lwrite_abundance = .false.
-  lheader_only = .false.
   lcgs_units = .false.
-  
+
   tmp_dir = "./"
 
   ! Geometrie Grille
@@ -1469,6 +1470,9 @@ subroutine initialisation_mcfost()
         i_arg = i_arg + 1
         lathena = .true.
         call get_command_argument(i_arg,athena_file)
+        n_arb_files = 1
+        allocate(density_files(n_arb_files))
+        density_files(1) = athena_file
         i_arg = i_arg + 1
      case("-idefix")
         i_arg = i_arg + 1
@@ -1484,10 +1488,6 @@ subroutine initialisation_mcfost()
         i_arg = i_arg + 1
         read(pluto_id,*,iostat=ios) i
         if (ios/=0) call error("pluto dump number needed")
-     case("-header_only")
-        i_arg = i_arg + 1
-        lheader_only = .true.
-        lstop_after_init = .true.
      case("-old_PA")
         i_arg = i_arg + 1
         lold_PA = .true.
@@ -1508,6 +1508,23 @@ subroutine initialisation_mcfost()
      case("-ignore_sink")
         i_arg = i_arg + 1
         lignore_sink=.true.
+     case("-corotating_frame")
+       i_arg = i_arg + 1
+       lcorotating_frame = .true.
+       corotation_radius = 1.0  ! Default value
+
+       ! Only read next argument if we still have arguments left
+       if (i_arg <= nbr_arg) then
+          call get_command_argument(i_arg, s)
+          ! Check if the next argument is not another flag (i.e., not starting with '-')
+          if (len_trim(s) > 0 .and. s(1:1) /= '-') then
+             read(s, *, iostat=ios) corotation_radius
+             ! If reading succeeded (ios == 0), move to next argument
+             if (ios == 0) i_arg = i_arg + 1
+             ! If reading fails, corotation_radius remains 1.0
+          end if
+       end if
+
      case("-write_abundance")
         i_arg = i_arg + 1
         lwrite_abundance=.true.
@@ -1539,9 +1556,8 @@ subroutine initialisation_mcfost()
   endif
   if (lathena) then
      l3D = .true.
+     athena%corotating_frame = lcorotating_frame
      if (n_zones > 1) call error("athena mode only work with 1 zone")
-     call warning("athena : forcing spherical grid") ! only spherical grid is implemented for now
-     disk_zone(1)%geometry = 2
      call read_athena_parameters(athena_file)
   endif
   if (lmodel_1d) then
@@ -2108,7 +2124,6 @@ subroutine display_help()
   write(*,*) "        : -force_Mgas : force the gas mass to be the value given the mcfost parameter file"
   write(*,*) "        : -not_random_Voronoi : force the particle order to remain the same"
   write(*,*) "        : -ignore_sink : forces nptmass to 0, ie not stars in mcfost"
-  write(*,*) "        : -header_only : only read the data and print some basic information"
   write(*,*) ""
   write(*,*) "You can find the full documentation at:"
   write(*,*) trim(doc_webpage)
