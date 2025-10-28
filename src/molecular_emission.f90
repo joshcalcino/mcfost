@@ -10,10 +10,10 @@ module molecular_emission
   implicit none
   save
 
-  logical :: ldouble_RT
+  logical :: ldouble_RT, lrovib
 
   real, dimension(:), allocatable :: Level_energy
-  character(len=12), dimension(:), allocatable ::  j_qnb
+  character(len=12), dimension(:), allocatable ::  j_qnb, v_qnb
 
   ! g est dp car les calculs utilisant g sont en dp
   real(kind=dp), dimension(:), allocatable :: poids_stat_g
@@ -966,7 +966,7 @@ function compute_vertical_CD(icell) result(CD)
      icell0 = next_cell
      x0 = x1 ; y0 = y1 ; z0 = z1
      call cross_cell(x0,y0,z0, u,v,w,  icell0, previous_cell, x1,y1,z1, next_cell, l, l_contrib, l_void_before)
-     CD = CD + (l_contrib * AU_to_m) * densite_gaz(icell) ! part.m^-2
+     CD = CD + (l_contrib * AU_to_m) * densite_gaz(icell0) ! part.m^-2
   enddo
 
   return
