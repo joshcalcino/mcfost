@@ -108,8 +108,6 @@ subroutine transfert_poussiere()
 
   laffichage=.true.
 
-write(*,*) "######lVoronoi", lVoronoi
-
   if (lVoronoi) then
      if (lmhd_voronoi) then
         call setup_mhd_to_mcfost() !uses sph_to_voronoi

@@ -227,7 +227,8 @@ subroutine set_default_variables()
   lstar_bb = .false.
   lwrite_abundance = .false.
   lcgs_units = .false.
-
+  lheader_only = .false.
+  
   tmp_dir = "./"
 
   ! Geometrie Grille
