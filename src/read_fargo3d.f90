@@ -38,7 +38,7 @@ contains
 
     if (lcgs_units) then
        ! grid is in centimeters, need to change to au 
-       length_conv = 1.0_dp / cm_to_au
+       length_conv = cm_to_au
     endif
 
     ! On compte les lignes avec des donnees
