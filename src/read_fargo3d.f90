@@ -21,18 +21,25 @@ contains
 
     character(len=128) :: key, val, filename
     integer :: ios, n_lines, iunit
+    real :: length_conv
 
     fargo3d%dir = dir
     fargo3d%id = id
 
     iunit = 1
     ios = 0
+    length_conv = 1.0 
 
     ! Reading parameter files and extracting key parameters
     filename = trim(dir)//"/variables.par"
     write(*,*) "Reading "//trim(filename)
     open(unit=iunit,file=trim(filename),status='old',form='formatted',iostat=ios)
     if (ios /= 0) call error("opening "//trim(filename))
+
+    if (lcgs_units) then
+       ! grid is in centimeters, need to change to au 
+       length_conv = 1.0_dp / cm_to_au
+    endif
 
     ! On compte les lignes avec des donnees
     n_lines = 0
@@ -51,13 +58,13 @@ contains
        case("NZ")
           read(val,*,iostat=ios) fargo3d%nz
        case("XMIN")
-          read(val,*,iostat=ios) fargo3d%xmin
+          read(val,*,iostat=ios) fargo3d%xmin 
        case("XMAX")
           read(val,*,iostat=ios) fargo3d%xmax
        case("YMIN")
-          read(val,*,iostat=ios) fargo3d%ymin
+          read(val,*,iostat=ios) fargo3d%ymin 
        case("YMAX")
-          read(val,*,iostat=ios) fargo3d%ymax
+          read(val,*,iostat=ios) fargo3d%ymax 
        case("ZMIN")
           read(val,*,iostat=ios) fargo3d%zmin
        case("ZMAX")
@@ -111,10 +118,10 @@ contains
        write(*,*) 'Lengths are rescaled by ', real(scale_length_units_factor)
     endif
 
-    disk_zone(1)%rin  = fargo3d%ymin * scale_length_units_factor
+    disk_zone(1)%rin  = fargo3d%ymin * scale_length_units_factor * length_conv
     disk_zone(1)%edge=0.0
     disk_zone(1)%rmin = disk_zone(1)%rin
-    disk_zone(1)%rout = fargo3d%ymax * scale_length_units_factor
+    disk_zone(1)%rout = fargo3d%ymax * scale_length_units_factor * length_conv
     disk_zone(1)%rmax = disk_zone(1)%rout
 
     write(*,*) "n_rad=", n_rad, "nz=", nz, "n_az=", n_az
@@ -164,6 +171,14 @@ contains
 
     umass = usolarmass *  Msun_to_kg
     ulength = ulength_au * AU_to_m
+
+    if (lcgs_units) then
+       ! already in cm and g, change to m and kg
+       umass = 1000.0_dp
+       ulength = 100.0_dp
+       Ggrav_fargo3d = Ggrav * 10000.0_dp
+    endif
+
     utime = sqrt(ulength**3/((Ggrav/Ggrav_fargo3d)*umass))
 
     udens = umass / ulength**3
@@ -276,7 +291,7 @@ contains
     do icell=1,n_cells
        mass = mass + densite_gaz(icell) *  mu_mH * volume(icell)
     enddo !icell
-    mass =  mass * AU3_to_m3 * g_to_Msun
+    mass =  mass * AU3_to_m3 * g_to_Msun 
 
     ! Normalisation
     if (mass > 0.0) then ! pour le cas ou gas_to_dust = 0.

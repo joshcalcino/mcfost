@@ -225,6 +225,7 @@ subroutine set_default_variables()
   lcorotating_frame = .false.
   lstar_bb = .false.
   lwrite_abundance = .false.
+  lcgs_units = .false.
 
   tmp_dir = "./"
 
@@ -1522,6 +1523,9 @@ subroutine initialisation_mcfost()
      case("-write_abundance")
         i_arg = i_arg + 1
         lwrite_abundance=.true.
+     case("-cgs_units")
+        i_arg = i_arg + 1
+        lcgs_units = .true.
       case default
         write(*,*) "Error: unknown option: "//trim(s)
         write(*,*) "Use 'mcfost -h' to get list of available options"
@@ -1926,6 +1930,7 @@ subroutine display_help()
   write(*,*) "        : -sphere_mesh <file> : reads the model <file> from a binary file"
   write(*,*) "        : -mhd_voronoi <file> : interface between grid-based code and Voronoi mesh"
   write(*,*) "        : -model_1d <file> : reads 1d spherically symmetric model <file>"
+  write(*,*) "        : -cgs_units : model is in cgs units "
   write(*,*) " "
   write(*,*) " Generating outputs for chemistry codes"
   write(*,*) "        : -prodimo : creates required files for ProDiMo"
