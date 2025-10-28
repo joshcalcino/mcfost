@@ -36,7 +36,7 @@ subroutine allocate_densities(n_cells_max)
   if (alloc_status > 0) call error('Allocation error densite_pouss')
   densite_pouss = 0.0
 
-  allocate(densite_gaz(Nc), densite_gaz_midplane(n_rad), masse_gaz(Nc), stat=alloc_status)
+  allocate(densite_gaz(Nc), densite_gaz_midplane(n_rad,n_az), masse_gaz(Nc), stat=alloc_status)
   if (alloc_status > 0) call error('Allocation error densite_gaz')
   densite_gaz = 0.0 ; densite_gaz_midplane = 0.0 ; masse_gaz = 0.0
 
@@ -296,9 +296,9 @@ subroutine alloc_dynamique(n_cells_max)
      if (alloc_status > 0) call error('Allocation error vfield')
      vfield=0.0 !; vx=0.0 ; vy=0.0
 
-     allocate(v_turb(Nc), v_line(Nc), deltaVmax(Nc), stat=alloc_status)
+     allocate(v_turb2(Nc), dv_line(Nc), deltaVmax(Nc), stat=alloc_status)
      if (alloc_status > 0) call error('Allocation error sigma2')
-     v_turb = 0.0 ; v_line = 0.0 ;   deltaVmax = 0.0
+     v_turb2 = 0.0 ; dv_line = 0.0 ;   deltaVmax = 0.0
 
      allocate(tab_dnu_o_freq(Nc), stat=alloc_status)
      if (alloc_status > 0) call error('Allocation error tab_dnu')

@@ -237,6 +237,8 @@ contains
 
     logical, save :: lfirst_time = .true.
 
+    integer, dimension(:), allocatable :: mask ! not allocated as we do not mask particle in live RT hydro
+
     ldust_moments = .false. ! for now
 
     ! We use the phantom_2_mcfost interface with 1 file
@@ -266,7 +268,7 @@ contains
     ! Performing the Voronoi tesselation & defining density arrays
     call SPH_to_Voronoi(n_SPH, ndusttypes, particle_id, x_SPH,y_SPH,z_SPH,h_SPH,vx_SPH,vy_SPH,vz_SPH,Tgas_SPH, &
          massgas,massdust,rhogas,rhodust,SPH_grainsizes, SPH_limits, .false., is_ghost, &
-         ldust_moments, dust_moments, mass_per_H)
+         ldust_moments, dust_moments, mass_per_H, mask=mask)
 
     call setup_grid()
     call setup_scattering()
@@ -567,7 +569,7 @@ contains
           somme2 = somme2 + B*delta_wl
        enddo
        kappa_diffusion = somme2/somme &
-          *cm_to_AU/(densite_gaz(icell)*masse_mol_gaz*(cm_to_m)**3) ! cm^2/g
+          *cm_to_AU/(densite_gaz(icell)*mu_mH*(cm_to_m)**3) ! cm^2/g
        ! check : somme2/somme * cm_to_AU /(masse_gaz(icell)/(volume(icell)*AU_to_cm**3))
     else
        kappa_diffusion = 0.

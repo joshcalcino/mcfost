@@ -42,7 +42,6 @@ subroutine transfert_poussiere()
 ! Ajout du cas ou les matrices de Mueller sont donnees en entrees
 ! 20/04/2023
 
-  use thermal_emission, only : frac_E_stars, frac_E_disk
   use MRW, only : initialize_cumulative_zeta
   use utils
   implicit none
@@ -68,7 +67,7 @@ subroutine transfert_poussiere()
 
   real(kind=dp) :: x,y,z, u,v,w, lmin, lmax
   real :: rand, tau
-  integer :: i, icell, p_icell, n_SPH
+  integer :: i, icell, p_icell
   logical :: flag_star, flag_scatt, flag_ISM
 
   logical :: laffichage, flag_em_nRE, lcompute_dust_prop
@@ -216,8 +215,8 @@ write(*,*) "######lVoronoi", lVoronoi
      if (loptical_depth_to_cell) call write_optical_depth_to_cell(1)
 
      write(*,*) ""
-     write(*,*) "Dust properties in cell #", icell_ref
-     p_icell = icell_ref
+     write(*,*) "Dust properties in cell #", icell_not_empty
+     p_icell = icell_not_empty
      if (aniso_method==2) write(*,*) "g             ", tab_g_pos(p_icell,1)
      write(*,*) "albedo        ", tab_albedo_pos(p_icell,1)
      if (lsepar_pola.and.(scattering_method == 2)) write(*,*) "polarisability", maxval(-tab_s12_o_s11_pos(:,p_icell,1))
@@ -868,8 +867,7 @@ subroutine emit_packet(id,lambda, icell,x0,y0,z0,u0,v0,w0,stokes,flag_star,flag_
   real :: rand, rand2, rand3, rand4
   integer :: i_star
 
-  real(kind=dp) :: w02, srw02
-  real :: argmt
+  real(kind=dp) :: w02
 
   real :: hc_lk, correct_spot, cos_thet_spot, x_spot, y_spot, z_spot
 
@@ -982,7 +980,8 @@ subroutine propagate_packet(id,lambda,p_lambda,icell,x,y,z,u,v,w,stokes,flag_sta
   logical, intent(out) :: flag_scatt
 
   real(kind=dp), dimension(4,4) :: M
-  real(kind=dp) :: u1,v1,w1, phi, cospsi, w02, srw02, argmt, Planck_opacity, rec_Planck_opacity, d, diff_coeff
+  real(kind=dp) :: u1,v1,w1, phi, cospsi
+  !real(kind=dp) :: Planck_opacity, rec_Planck_opacity, d, diff_coeff
   integer :: taille_grain, itheta
   integer :: n_iteractions_in_cell, icell_old
   integer, pointer :: p_icell
@@ -1002,7 +1001,7 @@ subroutine propagate_packet(id,lambda,p_lambda,icell,x,y,z,u,v,w,stokes,flag_sta
   if (lvariable_dust) then
      p_icell => icell
   else
-     p_icell => icell_ref
+     p_icell => icell1
   endif
 
   ! Boucle sur les interactions du paquets:

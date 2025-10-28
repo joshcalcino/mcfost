@@ -2,6 +2,7 @@ module read_athena
 
   use mem, only : allocate_densities
   use parametres
+  use constantes
   use messages
   use mcfost_env
   use grid
@@ -632,27 +633,25 @@ contains
       ! -- another copy and paste from read_fargo3d
       ! Normalisation density : copy and paste from read_density_file for now : needs to go in subroutine
 
-      ! Calcul de la masse de gaz de la zone
-      mass = 0.
-      do icell=1,n_cells
-         mass = mass + densite_gaz(icell) *  masse_mol_gaz * volume(icell)
-      enddo !icell
-      mass =  mass * AU3_to_m3 * g_to_Msun
+    ! Calcul de la masse de gaz de la zone
+    mass = 0.
+    do icell=1,n_cells
+       mass = mass + densite_gaz(icell) *  mu_mH * volume(icell)
+    enddo !icell
+    mass =  mass * AU3_to_m3 * g_to_Msun
 
       ! Normalisation
       if (mass > 0.0) then ! pour le cas ou gas_to_dust = 0.
          facteur = disk_zone(1)%diskmass * disk_zone(1)%gas_to_dust / mass
 
-         ! Somme sur les zones pour densite finale
-         do icell=1,n_cells
-            densite_gaz(icell) = densite_gaz(icell) * facteur
-            masse_gaz(icell) = densite_gaz(icell) * masse_mol_gaz * volume(icell) * AU3_to_m3
-         enddo ! icell
-      else
-         call error('Gas mass is 0')
-      endif
-
-      write(*,*) 'Total grid volume ', real(sum(volume))
+       ! Somme sur les zones pour densite finale
+       do icell=1,n_cells
+          densite_gaz(icell) = densite_gaz(icell) * facteur
+          masse_gaz(icell) = densite_gaz(icell) * mu_mH * volume(icell) * AU3_to_m3
+       enddo ! icell
+    else
+       call error('Gas mass is 0')
+    endif
 
       write(*,*) 'Total  gas mass in model:', real(sum(masse_gaz) * g_to_Msun),' Msun'
       call normalize_dust_density()

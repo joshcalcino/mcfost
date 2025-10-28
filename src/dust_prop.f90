@@ -553,7 +553,7 @@ subroutine prop_grains(lambda)
   implicit none
 
   integer, intent(in) :: lambda
-  real :: a, wavel, x, qext, qsca, gsca, amu1, amu2, amu1_coat, amu2_coat, Cext, Csca
+  real :: a, wavel, x, qext, qsca, gsca, amu1, amu2, amu1_coat, amu2_coat
   integer :: k, pop
 
   qext=0.0
@@ -795,7 +795,7 @@ subroutine opacite(lambda, p_lambda, no_scatt)
   integer, intent(in) :: lambda, p_lambda
   logical, intent(in), optional :: no_scatt
 
-  integer :: icell, k, thetaj
+  integer :: icell, k
   real(kind=dp) ::  density, fact, k_abs_RE, k_abs_LTE, k_abs_tot, k_sca_tot, rho0
   logical :: lcompute_obs,  ldens0, compute_scatt
 
@@ -811,10 +811,9 @@ subroutine opacite(lambda, p_lambda, no_scatt)
   ! c'est pour les prop de diffusion en relatif donc la veleur exacte n'a pas d'importante
   ldens0 = .false.
   if (.not.lvariable_dust) then
-     icell = icell_ref
-     if (maxval(densite_pouss(:,icell)) < tiny_real) then
+     if (icell_not_empty > icell1) then ! icell1==1
         ldens0 = .true.
-        densite_pouss(:,icell) = densite_pouss(:,icell_not_empty)
+        densite_pouss(:,icell1) = densite_pouss(:,icell_not_empty)
      endif
   endif
 
@@ -945,6 +944,16 @@ subroutine opacite(lambda, p_lambda, no_scatt)
      endif !.not.lmono
   endif !lnLTE
 
+  rho0 = masse(icell_not_empty)/volume(icell_not_empty) ! normalising by density in a non-empty cell
+  if (rho0 < tiny_dp) call error("cannot normalise by density in first non-empty cell")
+
+  ! We apply a corrective factor per cell --> to get kappa, we need to do kappa(icell,lambda) * kappa_factor(icell)
+  if (lvariable_dust) then
+     kappa_factor(:) = 1.0_dp
+  else
+     kappa_factor(1:n_cells) = masse(1:n_cells)/volume(1:n_cells) / rho0 ! ie rho / rho(icell_not_empty)
+  endif
+
   ! Normalisation des opacites kappa_abs pour etre en AU^-1
   ! tau est sans dimension : [kappa * lvol = density * a² * lvol]
   ! a² microns² -> 1e-8 cm²             \
@@ -954,18 +963,7 @@ subroutine opacite(lambda, p_lambda, no_scatt)
   ! les k_abs_XXX n'ont pas besoin d'etre normalise car tout est relatif
   fact = AU_to_cm * mum_to_cm**2
 
-  rho0 = masse(icell_not_empty)/volume(icell_not_empty) ! normalising by density in a non-empty cell
-  if (rho0 < tiny_dp) call error("cannot normalise by density in first cell")
-
-  ! We apply a corrective factor per cell --> to get kappa, we need to do kappa(icell,lambda) * kappa_factor(icell)
-  if (lvariable_dust) then
-     kappa_factor(:) = 1.0_dp
-  else
-     !write(*,*) shape(kappa_factor), shape(masse), shape(volume)
-     kappa_factor(1:n_cells) = masse(1:n_cells)/volume(1:n_cells) / rho0 ! ie rho / rho(icell_not_empty)
-  endif
   kappa(:,lambda) = kappa(:,lambda) * fact ! this is kappa in cell # icell_not_empty or in all cells if lvariable_dust
-
   if (lRE_LTE) kappa_abs_LTE(:,lambda) = kappa_abs_LTE(:,lambda) * fact
   if (lRE_nLTE) kappa_abs_nLTE(:,lambda) = kappa_abs_nLTE(:,lambda) * fact
   if (letape_th.and.lnRE) kappa_abs_RE(:,lambda) =  kappa_abs_RE(:,lambda) * fact
@@ -1010,8 +1008,7 @@ subroutine opacite(lambda, p_lambda, no_scatt)
 
   ! On remet la densite à zéro si besoin
   if (ldens0) then
-     icell = icell_ref
-     densite_pouss(:,icell) = 0.0_sp
+     densite_pouss(:,icell1) = 0.0_sp
   endif
 
   if ((ldust_prop).and.(lambda == n_lambda)) then
@@ -1055,10 +1052,9 @@ subroutine calc_local_scattering_matrices(lambda, p_lambda)
   ! c'est pour les prop de diffusion en relatif donc la veleur exacte n'a pas d'importante
   ldens0 = .false.
   if (.not.lvariable_dust) then
-     icell = icell_ref
-     if (maxval(densite_pouss(:,icell)) < tiny_real) then
+     if (icell_not_empty > icell1) then
         ldens0 = .true.
-        densite_pouss(:,icell) = densite_pouss(:,icell_not_empty)
+        densite_pouss(:,icell1) = densite_pouss(:,icell_not_empty)
      endif
   endif
 
@@ -1216,8 +1212,7 @@ subroutine calc_local_scattering_matrices(lambda, p_lambda)
   ! see opacite()
   ! On remet la densite à zéro si besoin
   if (ldens0) then
-     icell = icell_ref
-     densite_pouss(:,icell) = 0.0_sp
+     densite_pouss(:,icell1) = 0.0_sp
   endif
 
   return
@@ -1335,8 +1330,14 @@ subroutine write_dust_prop()
   allocate(S11_lambda_theta(n_lambda,0:nang_scatt),pol_lambda_theta(n_lambda,0:nang_scatt))
   allocate(kappa_grain(n_lambda,n_grains_tot))
 
-  icell = icell_not_empty
-  p_icell = icell_ref
+  if (lvariable_dust) then
+     write(*,*) "Warning: dust is not uniform, picking cell #",  icell_not_empty
+     icell = icell_not_empty
+     p_icell = icell_not_empty
+  else
+     icell  = icell_not_empty
+     p_icell = 1
+  endif
 
   kappa_lambda=real((kappa(icell,:)*kappa_factor(icell)/AU_to_cm)/(masse(icell)/(volume(icell)*AU_to_cm**3))) ! cm^2/g
   albedo_lambda=tab_albedo_pos(icell,:)
